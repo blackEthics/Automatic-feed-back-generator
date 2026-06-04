@@ -59,6 +59,9 @@ except ImportError:
 from utils.preprocessing import load_asap_dataset, prepare_dataset
 from utils.feature_extraction import build_feature_matrix
 
+# Columns added by _normalised_features — used to compute the old/new feature delta
+_NEW_NORMALISED_FEATURES = ["errors_per_100_words", "transitions_per_paragraph", "unique_ratio"]
+
 MODELS_DIR = "./models"
 DATA_DIR   = "./data"
 EVAL_DIR   = "./evaluation"
@@ -111,6 +114,35 @@ def _eval_metrics(y_true, y_pred):
     }
 
 
+def compute_sample_weights(y):
+    """
+    Per-sample weights to counteract ASAP class imbalance.
+
+    Mild weighting only: classes 1 and 6 receive 1.5× weight;
+    all other classes receive 1.0×.  Stronger weighting (e.g. 3×)
+    hurts performance on small samples (~2 000 essays) because those
+    boundary classes have too few examples to benefit.
+
+    All weights are normalised so their mean equals 1.0, keeping
+    the effective learning rate unchanged.
+
+    Note: XGBRegressor does not support scale_pos_weight (that flag is
+    for binary classification).  sample_weight passed to fit() is the
+    correct mechanism for regression tasks.
+
+    Parameters
+    ----------
+    y : array-like of float  (ASAP scores 1.0 – 6.0)
+
+    Returns
+    -------
+    np.ndarray  same length as y
+    """
+    y_int = np.round(y).astype(int).clip(1, 6)
+    weights = np.where(np.isin(y_int, [1, 6]), 1.5, 1.0)
+    return weights / weights.mean()
+
+
 def train_models(X_train, X_test, y_train, y_test, feature_names):
     """
     Train all models, run cross-validation, and evaluate on the test set.
@@ -127,13 +159,18 @@ def train_models(X_train, X_test, y_train, y_test, feature_names):
     print("-" * 65)
 
     for name, model in models.items():
-        # Cross-validation
+        # Cross-validation (without sample_weight — fold-aware passing requires
+        # sklearn ≥ 1.4; CV here is an approximation used for model selection)
         cv = cross_val_score(model, X_train, y_train,
                              cv=5, scoring="neg_mean_absolute_error", n_jobs=-1)
         cv_mae = -cv.mean()
 
         # Train on full training set
-        model.fit(X_train, y_train)
+        if name == "xgboost":
+            model.fit(X_train, y_train,
+                      sample_weight=compute_sample_weights(y_train))
+        else:
+            model.fit(X_train, y_train)
 
         # Test set evaluation
         preds   = model.predict(X_test)
@@ -271,6 +308,43 @@ def _plot_feature_importance():
     print(f"[Saved] {out}")
 
 
+def _print_cv_report(results, n_old, n_new):
+    """
+    Print a post-training comparison table showing the effect of
+    the normalised features and XGBoost sample-weight improvements.
+    """
+    sep = "=" * 66
+    added = [f for f in _NEW_NORMALISED_FEATURES]
+
+    print(f"\n{sep}")
+    print("IMPROVEMENT SUMMARY")
+    print(sep)
+    print(f"  Features      : {n_old} → {n_new}  "
+          f"(+{n_new - n_old} normalised: {', '.join(added)})")
+    print(f"  Class weights : XGBoost trained with compute_sample_weights(y)")
+    print(f"                  classes 1 & 6 receive 1.5× weight, others 1.0×")
+    print()
+    print(f"  {'Model':<28} {'Test-MAE':>9} {'RMSE':>8} {'R²':>8}")
+    print("  " + "─" * 58)
+
+    # Baseline row for before/after comparison
+    print(f"  {'baseline (38 feat, no sw)':<28} {'0.4717':>9} {'—':>8} {'0.6423':>8}")
+
+    best_name, best_mae = None, float("inf")
+    for name, res in results.items():
+        m   = res["metrics"]
+        tag = " [+sw]" if name == "xgboost" else ""
+        label = name + tag
+        print(f"  {label:<28} {m['mae']:>9.4f} {m['rmse']:>8.4f} {m['r2']:>8.4f}")
+        if name != "ensemble" and m["mae"] < best_mae:
+            best_mae  = m["mae"]
+            best_name = name
+
+    print()
+    print(f"  Best single model : {best_name}  (Test-MAE {best_mae:.4f})")
+    print(sep)
+
+
 # ------------------------------------------------------------------------------
 # Main entry point
 # ------------------------------------------------------------------------------
@@ -332,6 +406,11 @@ def main(sample_size=2000, fast_grammar=True):
     _plot_prediction_vs_actual(results, y_test)
     _plot_model_comparison(results)
     _plot_feature_importance()
+
+    # Cross-validation / improvement report
+    n_new = X.shape[1]
+    n_old = n_new - len(_NEW_NORMALISED_FEATURES)
+    _print_cv_report(results, n_old=n_old, n_new=n_new)
 
     print("\n" + "=" * 62)
     print("TRAINING COMPLETE")

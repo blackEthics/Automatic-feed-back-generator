@@ -118,6 +118,26 @@ def _relevance_features(text, source_text, prompt_name):
     }
 
 
+def _normalised_features(feats):
+    """
+    Length-normalised ratios computed from already-extracted features.
+
+    These four values reduce the dominance of raw length features
+    (especially char_count / word_count) in tree-based models.
+
+    academic_ratio overwrites the vocabulary-module version with the
+    same formula so downstream models see a consistent definition.
+    """
+    wc = max(feats.get("word_count", 1), 1)
+    pc = max(feats.get("paragraph_count", 1), 1)
+    return {
+        "errors_per_100_words":      feats.get("grammar_errors", 0) / max(wc / 100, 1),
+        "academic_ratio":            feats.get("academic_count", 0) / wc,
+        "transitions_per_paragraph": feats.get("transition_count", 0) / pc,
+        "unique_ratio":              feats.get("unique_words", 0) / wc,
+    }
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Combined extractor
 # ──────────────────────────────────────────────────────────────────────────────
@@ -149,6 +169,7 @@ def extract_all_features(essay_text, source_text=None, prompt_name=None,
     feats.update(_organization_features(essay_text))
     feats.update(_pos_features(essay_text))
     feats.update(_relevance_features(essay_text, source_text, prompt_name))
+    feats.update(_normalised_features(feats))   # must come last — reads from feats
 
     return feats
 
@@ -171,6 +192,9 @@ def _empty_features():
         "noun_ratio": 0.0, "verb_ratio": 0.0, "adj_ratio": 0.0,
         "adv_ratio": 0.0, "pron_ratio": 0.0,
         "relevance_score": 0.0, "topic_similarity": 0.0,
+        # normalised features (added to reduce length bias)
+        "errors_per_100_words": 0.0, "transitions_per_paragraph": 0.0,
+        "unique_ratio": 0.0,
     }
 
 
