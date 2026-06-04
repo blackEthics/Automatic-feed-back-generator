@@ -3,7 +3,6 @@ Dataset/
 data/
 
 # Trained model files (too large for GitHub)
-models/*.pkl
 
 # Python cache
 __pycache__/
