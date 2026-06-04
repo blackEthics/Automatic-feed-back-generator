@@ -21,6 +21,7 @@ Run directly to test:
   python utils/relevance.py
 """
 
+import logging
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -36,8 +37,17 @@ def _get_model():
             from sentence_transformers import SentenceTransformer
             print(f"[INFO] Loading sentence-transformer model: {MODEL_NAME}")
             _model = SentenceTransformer(MODEL_NAME)
+        except MemoryError as e:
+            logging.warning(
+                "sentence-transformers failed to load (MemoryError: %s). "
+                "Relevance scoring will return fixed score 0.5.", e
+            )
+            _model = False
         except Exception as e:
-            print(f"[WARN] sentence-transformers unavailable ({e}). Relevance will use length proxy.")
+            logging.warning(
+                "sentence-transformers unavailable (%s). "
+                "Relevance scoring will return fixed score 0.5.", e
+            )
             _model = False
     return _model if _model else None
 
@@ -129,9 +139,10 @@ def compute_relevance_score(essay_text, source_text=None, prompt_name=None, max_
 
     model = _get_model()
     if model is None:
-        # No model – same length proxy
-        wc = len(essay_text.split())
-        return round(min(max_score, (wc / 300) * max_score * 0.6), 2), -1.0
+        logging.warning(
+            "sentence-transformers unavailable; returning fixed relevance score 0.5"
+        )
+        return round(0.5 * max_score, 2), -1.0
 
     emb = _encode([essay_text, reference])
     sim = float(cosine_similarity([emb[0]], [emb[1]])[0][0])
