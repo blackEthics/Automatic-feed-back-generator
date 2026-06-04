@@ -1,0 +1,30 @@
+# Large data files
+Dataset/
+data/
+
+# Trained model files (too large for GitHub)
+models/*.pkl
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Environment
+.env
+*.env
+
+# Logs
+*.log
+uvicorn.log
+
+# Jupyter
+notebooks/.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Evaluation plots (regeneratable)
+evaluation/*.png

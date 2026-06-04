@@ -1,0 +1,33 @@
+========================================================================
+ESSAY SCORING SYSTEM  –  EVALUATION REPORT
+========================================================================
+
+Model                         MAE    RMSE      R²   Exact%   ±1 Acc%
+----------------------------------------------------------------------
+ridge                      0.5014  0.6542  0.5998   59.2%    97.0%
+random_forest              0.4778  0.6338  0.6243   61.9%    97.1%
+gradient_boosting          0.4717  0.6211  0.6392   61.9%    97.5%
+xgboost                    0.4719  0.6184  0.6423   62.3%    97.6%
+ensemble                   0.4717  0.6196  0.6410   62.1%    97.4%
+
+
+[METRIC DEFINITIONS]
+  MAE     – Mean Absolute Error (avg prediction error in score points)
+  RMSE    – Root Mean Squared Error (larger errors penalised more)
+  R²      – Coefficient of determination (1.0 = perfect fit)
+  Exact%  – % essays with predicted integer score == true score
+  ±1 Acc% – % essays predicted within ±1 score point of truth
+
+[ACADEMIC BENCHMARKS]
+  Human rater agreement on ASAP 2.0:
+    MAE ≈ 0.5–0.8   Adjacent accuracy ≈ 85–95%
+  Competitive AES systems (BERT-based):
+    MAE ≈ 0.4–0.6   R² ≈ 0.65–0.80
+  This system (feature-based ML, no fine-tuning):
+    Expected MAE ≈ 0.6–0.9  (reasonable for a lightweight system)
+
+[LIMITATIONS]
+  1. Feature-based models cannot capture deep semantic meaning.
+  2. Grammar heuristics undercount complex errors.
+  3. Relevance scoring depends on quality of source text.
+  4. Score 5–6 classes are rare (class imbalance).

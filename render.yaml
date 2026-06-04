@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: essay-scoring-api
+    env: python
+    plan: free           # upgrade to starter or above for reliable RAM headroom
+    buildCommand: >-
+      pip install -r api/requirements.txt &&
+      python -m spacy download en_core_web_sm
+    startCommand: bash start.sh
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+      - key: LOG_LEVEL
+        value: info
+      - key: WEB_CONCURRENCY
+        value: "1"       # keep at 1 on free tier (512 MB RAM); each worker loads ~400 MB of models
