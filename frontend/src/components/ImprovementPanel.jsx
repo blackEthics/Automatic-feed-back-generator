@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import DiffViewer from './DiffViewer'
 
 const DIMENSION_LABELS = {
   grammar:      { label: 'Grammar',      max: 20 },
@@ -85,6 +86,7 @@ export default function ImprovementPanel({ originalText, promptName, apiUrl, onC
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
   const [copied, setCopied] = useState(false)
+  const [showDiff, setShowDiff] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -352,6 +354,35 @@ export default function ImprovementPanel({ originalText, promptName, apiUrl, onC
               </div>
             )}
           </div>
+
+          {/* View Full Diff button */}
+          <button
+            onClick={() => setShowDiff(v => !v)}
+            style={{
+              width: '100%',
+              border: '1px solid #7C3AED',
+              background: 'transparent',
+              color: '#7C3AED',
+              fontSize: '14px',
+              fontWeight: 600,
+              borderRadius: '10px',
+              padding: '12px 16px',
+              cursor: 'pointer',
+              transition: 'background 0.15s, color 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,0.06)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+          >
+            {showDiff ? '▲ Hide Diff' : '⊕ View Full Diff'}
+          </button>
+
+          {/* Diff viewer */}
+          {showDiff && (
+            <DiffViewer
+              originalText={originalText}
+              improvedText={result.improved_text}
+            />
+          )}
 
           {/* Bottom actions */}
           <div style={{ display: 'flex', gap: '12px' }}>
