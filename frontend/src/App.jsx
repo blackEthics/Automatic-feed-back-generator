@@ -256,7 +256,12 @@ export default function App() {
 
             {/* Results */}
             {results && !loading && (
-              <ResultsSection results={results} onReset={handleReset} />
+              <ResultsSection
+                results={results}
+                onReset={handleReset}
+                originalText={essay}
+                promptName={topic}
+              />
             )}
 
         </main>

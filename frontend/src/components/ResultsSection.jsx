@@ -1,6 +1,10 @@
+import { useState } from 'react'
 import ScoreBar from './ScoreBar'
 import ScoreRing from './ScoreRing'
 import RadarChart from './charts/RadarChart'
+import ImprovementPanel from './ImprovementPanel'
+
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 const DIMENSIONS = [
   { key: 'grammar',      label: 'Grammar',      max: 20, tooltip: 'Spelling, punctuation and sentence structure' },
@@ -83,8 +87,9 @@ function StatCard({ label, value, sub }) {
   )
 }
 
-export default function ResultsSection({ results, onReset }) {
+export default function ResultsSection({ results, onReset, originalText, promptName }) {
   const { overall_score, asap_score, dimensions, feedback, word_count, processing_time_ms } = results
+  const [showImprovement, setShowImprovement] = useState(false)
 
   const strengths = DIMENSIONS.filter(d => dimensions[d.key].score / d.max >= 0.66)
   const needsWork = DIMENSIONS.filter(d => dimensions[d.key].score / d.max < 0.66)
@@ -236,6 +241,38 @@ export default function ResultsSection({ results, onReset }) {
           </div>
         </div>
       </div>
+
+      {/* Improve My Essay button */}
+      <button
+        onClick={() => setShowImprovement(true)}
+        style={{
+          width: '100%',
+          background: 'linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)',
+          color: '#FFFFFF',
+          fontSize: '15px',
+          fontWeight: 700,
+          borderRadius: '12px',
+          padding: '14px 20px',
+          cursor: 'pointer',
+          border: 'none',
+          transition: 'opacity 0.15s, transform 0.15s',
+          letterSpacing: '0.01em',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.opacity = '0.92'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+        onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)' }}
+      >
+        ✨ Improve My Essay with NLP
+      </button>
+
+      {/* Improvement panel */}
+      {showImprovement && (
+        <ImprovementPanel
+          originalText={originalText}
+          promptName={promptName}
+          apiUrl={API_URL}
+          onClose={() => setShowImprovement(false)}
+        />
+      )}
 
       {/* Action buttons */}
       <div style={{ display: 'flex', gap: '12px' }}>
