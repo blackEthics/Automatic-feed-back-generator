@@ -5,6 +5,8 @@ import Navbar from './components/layout/Navbar'
 import FileUploader from './components/ui/FileUploader'
 import ReportView from './components/ReportView'
 import HistoryPage from './pages/HistoryPage'
+import DashboardPage from './pages/DashboardPage'
+import ReportsPage from './pages/ReportsPage'
 import { saveEssayResult, updateLatestImprovement } from './utils/historyStorage'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
@@ -24,6 +26,7 @@ const PAGE_TITLES = {
   'new-evaluation': 'New Evaluation',
   'history':        'My History',
   'dashboard':      'Dashboard',
+  'reports':        'Reports',
 }
 
 const SAMPLE_ESSAY = `Driverless cars represent one of the most significant technological advances of the twenty-first century. These autonomous vehicles rely on a combination of sensors, cameras, radar systems, and sophisticated artificial intelligence to navigate roads without any human input. Proponents argue that self-driving technology could dramatically reduce traffic accidents, which currently cause over a million deaths worldwide each year. Because the vast majority of crashes result from human error, eliminating that error could make roads far safer for everyone.
@@ -128,23 +131,14 @@ export default function App() {
             <HistoryPage onNavigate={setActivePage} />
           )}
 
-          {/* Dashboard placeholder */}
+          {/* Dashboard page */}
           {activePage === 'dashboard' && (
-            <div style={{
-              backgroundColor: 'var(--color-surface)',
-              border: '1px solid var(--color-border)',
-              borderRadius: '12px',
-              padding: '64px 24px',
-              textAlign: 'center',
-            }}>
-              <p style={{ fontSize: '40px', margin: '0 0 12px 0' }}>📊</p>
-              <p style={{ fontSize: '18px', fontWeight: 700, color: 'var(--color-text)', margin: '0 0 6px 0' }}>
-                Dashboard
-              </p>
-              <p style={{ fontSize: '14px', color: 'var(--color-text-muted)', margin: 0 }}>
-                Coming soon — analytics and insights across all your essays.
-              </p>
-            </div>
+            <DashboardPage onNavigate={setActivePage} />
+          )}
+
+          {/* Reports page */}
+          {activePage === 'reports' && (
+            <ReportsPage onNavigate={setActivePage} />
           )}
 
           {/* New Evaluation page */}
