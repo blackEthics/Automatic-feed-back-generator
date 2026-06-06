@@ -1,13 +1,13 @@
 const NAV_ITEMS = [
-  { id: 'Dashboard',       icon: '⊞', label: 'Dashboard' },
-  { id: 'New Evaluation',  icon: '⊕', label: 'New Evaluation' },
-  { id: 'My Documents',    icon: '🗂', label: 'My Documents' },
-  { id: 'History',         icon: '🕐', label: 'History' },
-  { id: 'Reports',         icon: '📊', label: 'Reports' },
-  { id: 'Settings',        icon: '⚙', label: 'Settings' },
+  { page: 'dashboard',      icon: '⊞', label: 'Dashboard' },
+  { page: 'new-evaluation', icon: '⊕', label: 'New Evaluation' },
+  { page: 'my-documents',   icon: '🗂', label: 'My Documents' },
+  { page: 'history',        icon: '🕐', label: 'History' },
+  { page: 'reports',        icon: '📊', label: 'Reports' },
+  { page: 'settings',       icon: '⚙', label: 'Settings' },
 ]
 
-export default function Sidebar({ active = 'New Evaluation' }) {
+export default function Sidebar({ activePage = 'new-evaluation', onNavigate }) {
   return (
     <aside style={{
       width: '240px',
@@ -51,10 +51,11 @@ export default function Sidebar({ active = 'New Evaluation' }) {
       {/* Nav */}
       <nav style={{ padding: '12px 8px', flex: 1 }}>
         {NAV_ITEMS.map(item => {
-          const isActive = item.id === active
+          const isActive = item.page === activePage
           return (
             <div
-              key={item.id}
+              key={item.page}
+              onClick={() => onNavigate?.(item.page)}
               style={{
                 display: 'flex',
                 alignItems: 'center',

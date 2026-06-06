@@ -4,6 +4,8 @@ import Sidebar from './components/layout/Sidebar'
 import Navbar from './components/layout/Navbar'
 import FileUploader from './components/ui/FileUploader'
 import ReportView from './components/ReportView'
+import HistoryPage from './pages/HistoryPage'
+import { saveEssayResult, updateLatestImprovement } from './utils/historyStorage'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -17,6 +19,12 @@ const TOPICS = [
   { label: 'Does the electoral college work?', value: 'Does the electoral college work?' },
   { label: 'Car-free cities',              value: 'Car-free cities' },
 ]
+
+const PAGE_TITLES = {
+  'new-evaluation': 'New Evaluation',
+  'history':        'My History',
+  'dashboard':      'Dashboard',
+}
 
 const SAMPLE_ESSAY = `Driverless cars represent one of the most significant technological advances of the twenty-first century. These autonomous vehicles rely on a combination of sensors, cameras, radar systems, and sophisticated artificial intelligence to navigate roads without any human input. Proponents argue that self-driving technology could dramatically reduce traffic accidents, which currently cause over a million deaths worldwide each year. Because the vast majority of crashes result from human error, eliminating that error could make roads far safer for everyone.
 
@@ -38,8 +46,9 @@ export default function App() {
   const [results, setResults] = useState(null)
   const [improvementResult, setImprovementResult] = useState(null)
   const [error, setError] = useState(null)
-  const [inputTab, setInputTab] = useState('type')       // 'type' | 'upload'
-  const [fileNotice, setFileNotice] = useState(null)     // { name } | null
+  const [inputTab, setInputTab] = useState('type')
+  const [fileNotice, setFileNotice] = useState(null)
+  const [activePage, setActivePage] = useState('new-evaluation')
 
   const wc = wordCount(essay)
   const cc = essay.length
@@ -67,13 +76,20 @@ export default function App() {
         throw new Error(data.detail ?? `HTTP ${res.status}`)
       }
 
-      setResults(await res.json())
+      const data = await res.json()
+      setResults(data)
+      saveEssayResult(essay, topic, data, null)
     } catch {
       setError('Scoring failed. Please check your essay and try again.')
     } finally {
       setLoading(false)
     }
   }, [essay, topic, wc])
+
+  const handleImprovementResult = useCallback((data) => {
+    setImprovementResult(data)
+    if (data) updateLatestImprovement(data)
+  }, [])
 
   const handleTextExtracted = useCallback((text, fileName) => {
     setEssay(text)
@@ -100,174 +116,204 @@ export default function App() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <Sidebar />
+      <Sidebar activePage={activePage} onNavigate={setActivePage} />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <Navbar title="New Evaluation" />
+        <Navbar title={PAGE_TITLES[activePage] ?? 'EssayAI'} />
 
         <main style={{ padding: '24px', background: 'var(--color-bg)' }}>
-            {/* Input form — hidden once results arrive */}
-            {!results && !loading && (
-              <div style={{
-                backgroundColor: 'var(--color-surface)',
-                border: '1px solid var(--color-border)',
-                borderRadius: '12px',
-                padding: '24px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-              }}
-                className="space-y-5"
-              >
-                {/* Tab switcher */}
+
+          {/* History page */}
+          {activePage === 'history' && (
+            <HistoryPage onNavigate={setActivePage} />
+          )}
+
+          {/* Dashboard placeholder */}
+          {activePage === 'dashboard' && (
+            <div style={{
+              backgroundColor: 'var(--color-surface)',
+              border: '1px solid var(--color-border)',
+              borderRadius: '12px',
+              padding: '64px 24px',
+              textAlign: 'center',
+            }}>
+              <p style={{ fontSize: '40px', margin: '0 0 12px 0' }}>📊</p>
+              <p style={{ fontSize: '18px', fontWeight: 700, color: 'var(--color-text)', margin: '0 0 6px 0' }}>
+                Dashboard
+              </p>
+              <p style={{ fontSize: '14px', color: 'var(--color-text-muted)', margin: 0 }}>
+                Coming soon — analytics and insights across all your essays.
+              </p>
+            </div>
+          )}
+
+          {/* New Evaluation page */}
+          {activePage === 'new-evaluation' && (
+            <>
+              {/* Input form — hidden once results arrive */}
+              {!results && !loading && (
                 <div style={{
-                  display: 'flex',
-                  gap: '4px',
-                  borderBottom: '1px solid var(--color-border)',
-                  marginBottom: '4px',
-                }}>
-                  {[
-                    { id: 'type',   label: '📝 Type / Paste' },
-                    { id: 'upload', label: '📄 Upload File'   },
-                  ].map(tab => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setInputTab(tab.id)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        borderBottom: inputTab === tab.id
-                          ? '2px solid var(--color-primary)'
-                          : '2px solid transparent',
-                        color: inputTab === tab.id
-                          ? 'var(--color-primary)'
-                          : '#6b7280',
-                        fontWeight: inputTab === tab.id ? 600 : 400,
-                        fontSize: '0.85rem',
-                        padding: '6px 14px 10px',
-                        cursor: 'pointer',
-                        transition: 'color 0.15s, border-color 0.15s',
-                        marginBottom: '-1px',
-                      }}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Upload tab */}
-                {inputTab === 'upload' && (
-                  <FileUploader onTextExtracted={handleTextExtracted} />
-                )}
-
-                {/* Type / Paste tab */}
-                {inputTab === 'type' && (
-                  <div>
-                    {fileNotice && (
-                      <p style={{
-                        fontSize: '0.82rem',
-                        color: '#15803d',
-                        background: '#f0fdf4',
-                        border: '1px solid #bbf7d0',
-                        borderRadius: '8px',
-                        padding: '8px 12px',
-                        marginBottom: '10px',
-                      }}>
-                        ✅ Text loaded from <strong>{fileNotice.name}</strong> — review below then click Analyse Essay
-                      </p>
-                    )}
-                    <div className="flex justify-between items-baseline mb-1.5">
-                      <label className="text-sm font-medium text-gray-700">Essay text</label>
-                      <span className={`text-xs ${tooShort ? 'text-red-500 font-medium' : 'text-gray-400'}`}>
-                        {wc} word{wc !== 1 ? 's' : ''} &middot; {cc} character{cc !== 1 ? 's' : ''}
-                        {tooShort ? ' — minimum 20 words' : ''}
-                      </span>
-                    </div>
-                    <textarea
-                      value={essay}
-                      onChange={e => { setEssay(e.target.value); setFileNotice(null) }}
-                      placeholder="Paste or type your essay here…"
-                      rows={12}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent resize-y"
-                      style={{ '--tw-ring-color': 'var(--color-primary)', minHeight: '280px' }}
-                    />
-                  </div>
-                )}
-
-                {/* Topic dropdown */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Topic</label>
-                  <select
-                    value={topic}
-                    onChange={e => setTopic(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:border-transparent"
-                    style={{ '--tw-ring-color': 'var(--color-primary)' }}
-                  >
-                    {TOPICS.map(t => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
+                  backgroundColor: 'var(--color-surface)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: '12px',
+                  padding: '24px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                }}
+                  className="space-y-5"
+                >
+                  {/* Tab switcher */}
+                  <div style={{
+                    display: 'flex',
+                    gap: '4px',
+                    borderBottom: '1px solid var(--color-border)',
+                    marginBottom: '4px',
+                  }}>
+                    {[
+                      { id: 'type',   label: '📝 Type / Paste' },
+                      { id: 'upload', label: '📄 Upload File'   },
+                    ].map(tab => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setInputTab(tab.id)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          borderBottom: inputTab === tab.id
+                            ? '2px solid var(--color-primary)'
+                            : '2px solid transparent',
+                          color: inputTab === tab.id
+                            ? 'var(--color-primary)'
+                            : '#6b7280',
+                          fontWeight: inputTab === tab.id ? 600 : 400,
+                          fontSize: '0.85rem',
+                          padding: '6px 14px 10px',
+                          cursor: 'pointer',
+                          transition: 'color 0.15s, border-color 0.15s',
+                          marginBottom: '-1px',
+                        }}
+                      >
+                        {tab.label}
+                      </button>
                     ))}
-                  </select>
+                  </div>
+
+                  {/* Upload tab */}
+                  {inputTab === 'upload' && (
+                    <FileUploader onTextExtracted={handleTextExtracted} />
+                  )}
+
+                  {/* Type / Paste tab */}
+                  {inputTab === 'type' && (
+                    <div>
+                      {fileNotice && (
+                        <p style={{
+                          fontSize: '0.82rem',
+                          color: '#15803d',
+                          background: '#f0fdf4',
+                          border: '1px solid #bbf7d0',
+                          borderRadius: '8px',
+                          padding: '8px 12px',
+                          marginBottom: '10px',
+                        }}>
+                          ✅ Text loaded from <strong>{fileNotice.name}</strong> — review below then click Analyse Essay
+                        </p>
+                      )}
+                      <div className="flex justify-between items-baseline mb-1.5">
+                        <label className="text-sm font-medium text-gray-700">Essay text</label>
+                        <span className={`text-xs ${tooShort ? 'text-red-500 font-medium' : 'text-gray-400'}`}>
+                          {wc} word{wc !== 1 ? 's' : ''} &middot; {cc} character{cc !== 1 ? 's' : ''}
+                          {tooShort ? ' — minimum 20 words' : ''}
+                        </span>
+                      </div>
+                      <textarea
+                        value={essay}
+                        onChange={e => { setEssay(e.target.value); setFileNotice(null) }}
+                        placeholder="Paste or type your essay here…"
+                        rows={12}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent resize-y"
+                        style={{ '--tw-ring-color': 'var(--color-primary)', minHeight: '280px' }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Topic dropdown */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Topic</label>
+                    <select
+                      value={topic}
+                      onChange={e => setTopic(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:border-transparent"
+                      style={{ '--tw-ring-color': 'var(--color-primary)' }}
+                    >
+                      {TOPICS.map(t => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Error */}
+                  {error && (
+                    <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                      {error}
+                    </p>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-3 pt-1">
+                    <button
+                      onClick={handleSubmit}
+                      disabled={wc < 20}
+                      className="flex-1 text-white text-sm font-semibold rounded-lg px-4 py-2.5 transition-colors disabled:cursor-not-allowed"
+                      style={{
+                        backgroundColor: wc < 20 ? '#A5A0F5' : 'var(--color-primary)',
+                      }}
+                      onMouseEnter={e => { if (wc >= 20) e.currentTarget.style.backgroundColor = 'var(--color-primary-dark)' }}
+                      onMouseLeave={e => { if (wc >= 20) e.currentTarget.style.backgroundColor = 'var(--color-primary)' }}
+                    >
+                      Analyse Essay
+                    </button>
+                    <button
+                      onClick={handleSample}
+                      className="text-sm font-medium rounded-lg px-4 py-2.5 transition-colors whitespace-nowrap border"
+                      style={{
+                        color: 'var(--color-primary)',
+                        borderColor: 'rgba(108,99,255,0.35)',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-primary)' }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(108,99,255,0.35)' }}
+                    >
+                      Try Sample Essay
+                    </button>
+                  </div>
                 </div>
+              )}
 
-                {/* Error */}
-                {error && (
-                  <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-                    {error}
-                  </p>
-                )}
-
-                {/* Actions */}
-                <div className="flex gap-3 pt-1">
-                  <button
-                    onClick={handleSubmit}
-                    disabled={wc < 20}
-                    className="flex-1 text-white text-sm font-semibold rounded-lg px-4 py-2.5 transition-colors disabled:cursor-not-allowed"
+              {/* Loading spinner */}
+              {loading && (
+                <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+                  <div
+                    className="w-10 h-10 border-4 rounded-full animate-spin mb-4"
                     style={{
-                      backgroundColor: wc < 20 ? '#A5A0F5' : 'var(--color-primary)',
+                      borderColor: 'rgba(108,99,255,0.2)',
+                      borderTopColor: 'var(--color-primary)',
                     }}
-                    onMouseEnter={e => { if (wc >= 20) e.currentTarget.style.backgroundColor = 'var(--color-primary-dark)' }}
-                    onMouseLeave={e => { if (wc >= 20) e.currentTarget.style.backgroundColor = 'var(--color-primary)' }}
-                  >
-                    Analyse Essay
-                  </button>
-                  <button
-                    onClick={handleSample}
-                    className="text-sm font-medium rounded-lg px-4 py-2.5 transition-colors whitespace-nowrap border"
-                    style={{
-                      color: 'var(--color-primary)',
-                      borderColor: 'rgba(108,99,255,0.35)',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-primary)' }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(108,99,255,0.35)' }}
-                  >
-                    Try Sample Essay
-                  </button>
+                  />
+                  <p className="text-sm">Analysing your essay…</p>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Loading spinner */}
-            {loading && (
-              <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-                <div
-                  className="w-10 h-10 border-4 rounded-full animate-spin mb-4"
-                  style={{
-                    borderColor: 'rgba(108,99,255,0.2)',
-                    borderTopColor: 'var(--color-primary)',
-                  }}
+              {/* Results */}
+              {results && !loading && (
+                <ResultsSection
+                  results={results}
+                  onReset={handleReset}
+                  originalText={essay}
+                  promptName={topic}
+                  setImprovementResult={handleImprovementResult}
                 />
-                <p className="text-sm">Analysing your essay…</p>
-              </div>
-            )}
-
-            {/* Results */}
-            {results && !loading && (
-              <ResultsSection
-                results={results}
-                onReset={handleReset}
-                originalText={essay}
-                promptName={topic}
-                setImprovementResult={setImprovementResult}
-              />
-            )}
+              )}
+            </>
+          )}
 
         </main>
       </div>
