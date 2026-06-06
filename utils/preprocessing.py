@@ -312,6 +312,8 @@ def prepare_dataset(df, sample_size=None):
     df["full_text"] = df["full_text"].fillna("")
     if "source_text_1" in df.columns:
         df["source_text"] = df["source_text_1"].fillna("").apply(clean_text)
+    elif "source_text" in df.columns:
+        df["source_text"] = df["source_text"].fillna("").apply(clean_text)
     else:
         df["source_text"] = ""
 

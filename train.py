@@ -71,6 +71,35 @@ for d in [MODELS_DIR, DATA_DIR, EVAL_DIR]:
 
 
 # ------------------------------------------------------------------------------
+# Dataset loading
+# ------------------------------------------------------------------------------
+
+def load_combined_dataset() -> pd.DataFrame:
+    """Load and combine ASAP 2.0 and PERSUADE 2.0 datasets."""
+    asap_path = "./Dataset/ASAP 2.0/ASAP2_train_sourcetexts.csv"
+    asap = pd.read_csv(asap_path)
+    asap = asap[["full_text", "score", "prompt_name", "source_text_1"]].copy()
+    asap = asap.rename(columns={"source_text_1": "source_text"})
+    asap["dataset"] = "asap"
+
+    persuade_path = "./Dataset/PERSUADE 2.0/persuade_2.0_human_scores_demo_id_github.csv"
+    persuade = pd.read_csv(persuade_path)
+    persuade = persuade[["full_text", "holistic_essay_score", "prompt_name", "source_text"]].copy()
+    persuade = persuade.rename(columns={"holistic_essay_score": "score"})
+    persuade["dataset"] = "persuade"
+
+    combined = pd.concat([asap, persuade], ignore_index=True)
+
+    print(f"  ASAP 2.0:     {len(asap):,} essays")
+    print(f"  PERSUADE 2.0: {len(persuade):,} essays")
+    print(f"  Combined:     {len(combined):,} essays")
+    print("  Score distribution:")
+    print(combined["score"].value_counts().sort_index().to_string())
+
+    return combined
+
+
+# ------------------------------------------------------------------------------
 # Model definitions
 # ------------------------------------------------------------------------------
 
@@ -308,7 +337,7 @@ def _plot_feature_importance():
     print(f"[Saved] {out}")
 
 
-def _print_cv_report(results, n_old, n_new):
+def _print_cv_report(results, n_old, n_new, combined=False, train_n=None):
     """
     Print a post-training comparison table showing the effect of
     the normalised features and XGBoost sample-weight improvements.
@@ -319,6 +348,12 @@ def _print_cv_report(results, n_old, n_new):
     print(f"\n{sep}")
     print("IMPROVEMENT SUMMARY")
     print(sep)
+    if combined:
+        print(f"  Dataset       : ASAP 2.0 + PERSUADE 2.0 (combined)")
+        print(f"  Total essays available: 50,724")
+        if train_n is not None:
+            print(f"  Training sample: {train_n:,} essays")
+        print()
     print(f"  Features      : {n_old} → {n_new}  "
           f"(+{n_new - n_old} normalised: {', '.join(added)})")
     print(f"  Class weights : XGBoost trained with compute_sample_weights(y)")
@@ -349,7 +384,7 @@ def _print_cv_report(results, n_old, n_new):
 # Main entry point
 # ------------------------------------------------------------------------------
 
-def main(sample_size=2000, fast_grammar=True):
+def main(sample_size=2000, fast_grammar=True, combined=False):
     """
     End-to-end training pipeline.
 
@@ -357,6 +392,7 @@ def main(sample_size=2000, fast_grammar=True):
     ----------
     sample_size  : int | None  – None = full dataset (slow)
     fast_grammar : bool        – True = heuristic grammar features (fast)
+    combined     : bool        – True = use ASAP 2.0 + PERSUADE 2.0
     """
     print("=" * 62)
     print("ESSAY SCORING MODEL  –  TRAINING PIPELINE")
@@ -364,8 +400,22 @@ def main(sample_size=2000, fast_grammar=True):
 
     # 1. Load data
     print("\n[1/5] Loading dataset...")
-    df_raw = load_asap_dataset()
-    df = prepare_dataset(df_raw, sample_size=sample_size)
+    if combined:
+        df_raw = load_combined_dataset()
+        if sample_size is not None:
+            strat_key   = df_raw["score"].astype(str) + "_" + df_raw["dataset"]
+            n_strata    = strat_key.nunique()
+            per_stratum = sample_size // n_strata
+            df_raw = (df_raw
+                      .groupby(strat_key, group_keys=False)
+                      .apply(lambda g: g.sample(n=min(len(g), per_stratum), random_state=42))
+                      .reset_index(drop=True))
+            print(f"[INFO] Stratified sample: {len(df_raw):,} essays "
+                  f"({n_strata} strata, ~{per_stratum}/stratum)")
+        df = prepare_dataset(df_raw, sample_size=None)
+    else:
+        df_raw = load_asap_dataset()
+        df = prepare_dataset(df_raw, sample_size=sample_size)
 
     # 2. Feature extraction
     print("\n[2/5] Extracting NLP features...")
@@ -410,7 +460,8 @@ def main(sample_size=2000, fast_grammar=True):
     # Cross-validation / improvement report
     n_new = X.shape[1]
     n_old = n_new - len(_NEW_NORMALISED_FEATURES)
-    _print_cv_report(results, n_old=n_old, n_new=n_new)
+    _print_cv_report(results, n_old=n_old, n_new=n_new,
+                     combined=combined, train_n=len(X_train))
 
     print("\n" + "=" * 62)
     print("TRAINING COMPLETE")
@@ -424,14 +475,23 @@ def main(sample_size=2000, fast_grammar=True):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train essay scoring models")
-    parser.add_argument("--sample",          type=int, default=2000,
-                        help="Number of essays to use (default 2000, use 0 for all)")
+    parser.add_argument("--sample",          type=int, default=None,
+                        help="Number of essays to use (default: 2000 ASAP, 4000 combined)")
     parser.add_argument("--full",            action="store_true",
                         help="Use full dataset (ignores --sample)")
+    parser.add_argument("--combined",        action="store_true",
+                        help="Use ASAP 2.0 + PERSUADE 2.0 combined dataset")
     parser.add_argument("--no-fast-grammar", dest="fast_grammar",
                         action="store_false",
                         help="Use LanguageTool grammar check (slow but accurate)")
     args = parser.parse_args()
 
-    size = None if args.full else (args.sample if args.sample > 0 else None)
-    main(sample_size=size, fast_grammar=args.fast_grammar)
+    if args.full:
+        size = None
+    elif args.sample is not None:
+        size = args.sample if args.sample > 0 else None
+    elif args.combined:
+        size = 4000
+    else:
+        size = 2000
+    main(sample_size=size, fast_grammar=args.fast_grammar, combined=args.combined)
