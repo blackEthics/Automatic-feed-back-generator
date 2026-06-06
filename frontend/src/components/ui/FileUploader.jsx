@@ -1,33 +1,69 @@
 import { useState, useRef, useCallback } from 'react'
 
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+const ALLOWED_EXTS = ['.txt', '.pdf', '.docx']
+
 export default function FileUploader({ onTextExtracted }) {
-  const [dragOver, setDragOver] = useState(false)
-  const [error, setError]       = useState(null)
-  const [file, setFile]         = useState(null)   // { name, sizeKB }
+  const [dragOver, setDragOver]   = useState(false)
+  const [error, setError]         = useState(null)
+  const [file, setFile]           = useState(null)   // { name, wordCount }
+  const [loading, setLoading]     = useState(false)
   const inputRef = useRef(null)
 
-  const processFile = useCallback((f) => {
+  const getExt = (name) => {
+    const m = name.match(/(\.[^.]+)$/)
+    return m ? m[1].toLowerCase() : ''
+  }
+
+  const processFile = useCallback(async (f) => {
     setError(null)
 
-    if (!f.name.endsWith('.txt')) {
-      setError('Only .txt files supported. DOCX and PDF coming soon.')
+    const ext = getExt(f.name)
+    if (!ALLOWED_EXTS.includes(ext)) {
+      setError('Only .txt, .pdf, and .docx files are supported.')
       return
     }
 
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      setFile({ name: f.name, sizeKB: (f.size / 1024).toFixed(1) })
-      onTextExtracted(e.target.result, f.name)
+    if (f.size > 10 * 1024 * 1024) {
+      setError('File must be under 10MB.')
+      return
     }
-    reader.readAsText(f)
+
+    setLoading(true)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', f)
+
+      console.log('Uploading to:', `${API_URL}/upload-file`)
+      const response = await fetch(`${API_URL}/upload-file`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.detail || 'Failed to extract text from file.')
+        return
+      }
+
+      setFile({ name: data.filename, wordCount: data.word_count })
+      onTextExtracted(data.extracted_text, data.filename)
+    } catch {
+      setError('Upload failed. Please check your connection and try again.')
+    } finally {
+      setLoading(false)
+    }
   }, [onTextExtracted])
 
   const handleDrop = useCallback((e) => {
     e.preventDefault()
     setDragOver(false)
+    if (loading) return
     const f = e.dataTransfer.files[0]
     if (f) processFile(f)
-  }, [processFile])
+  }, [processFile, loading])
 
   const handleChange = (e) => {
     const f = e.target.files[0]
@@ -54,8 +90,9 @@ export default function FileUploader({ onTextExtracted }) {
         gap: '8px',
       }}>
         <span style={{ fontSize: '2rem' }}>✅</span>
-        <p style={{ fontWeight: 600, color: '#15803d', margin: 0 }}>{file.name}</p>
-        <p style={{ fontSize: '0.78rem', color: '#6b7280', margin: 0 }}>{file.sizeKB} KB</p>
+        <p style={{ fontWeight: 600, color: '#15803d', margin: 0 }}>
+          {file.name} loaded — {file.wordCount} words extracted
+        </p>
         <button
           onClick={handleReset}
           style={{
@@ -73,6 +110,27 @@ export default function FileUploader({ onTextExtracted }) {
         >
           Remove file
         </button>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div style={{
+        border: '2px dashed var(--color-border)',
+        borderRadius: '12px',
+        padding: '48px 24px',
+        textAlign: 'center',
+        background: 'var(--color-bg)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '12px',
+      }}>
+        <span style={{ fontSize: '2rem' }}>⏳</span>
+        <p style={{ fontWeight: 600, color: 'var(--color-text)', margin: 0 }}>
+          Extracting text…
+        </p>
       </div>
     )
   }
@@ -111,15 +169,15 @@ export default function FileUploader({ onTextExtracted }) {
       >
         <span style={{ fontSize: '2.25rem', display: 'block', marginBottom: '10px' }}>📄</span>
         <p style={{ fontWeight: 600, color: 'var(--color-text)', margin: '0 0 4px' }}>
-          Drag &amp; drop a .txt file
+          Drag &amp; drop your essay file here
         </p>
         <p style={{ fontSize: '0.82rem', color: '#9ca3af', margin: 0 }}>
-          or click to browse
+          Supports .txt, .pdf, and .docx files
         </p>
         <input
           ref={inputRef}
           type="file"
-          accept=".txt"
+          accept=".txt,.pdf,.docx"
           onChange={handleChange}
           style={{ display: 'none' }}
         />

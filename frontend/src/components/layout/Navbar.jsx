@@ -1,4 +1,8 @@
+import { useAuth } from '../../contexts/AuthContext'
+
 export default function Navbar({ title = 'New Evaluation' }) {
+  const { user, loading, login, logout } = useAuth()
+
   return (
     <header style={{
       height: '56px',
@@ -41,30 +45,77 @@ export default function Navbar({ title = 'New Evaluation' }) {
           🔔
         </button>
 
-        {/* Avatar + name */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '50%',
-            backgroundColor: 'var(--color-text)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontWeight: '700',
-            fontSize: '13px',
-          }}>
-            U
+        {/* User area */}
+        {loading ? (
+          <span style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>...</span>
+        ) : user ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {user.picture ? (
+              <img
+                src={user.picture}
+                alt={user.name}
+                referrerPolicy="no-referrer"
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                }}
+              />
+            ) : (
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                backgroundColor: 'var(--color-text)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff',
+                fontWeight: '700',
+                fontSize: '13px',
+              }}>
+                U
+              </div>
+            )}
+            <span style={{ fontSize: '14px', fontWeight: '500', color: 'var(--color-text)' }}>
+              {user.name?.split(' ')[0]}
+            </span>
+            <button
+              onClick={logout}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '13px',
+                color: '#ef4444',
+                padding: '4px 8px',
+                borderRadius: '6px',
+              }}
+            >
+              Sign out
+            </button>
           </div>
-          <span style={{
-            fontSize: '14px',
-            fontWeight: '500',
-            color: 'var(--color-text)',
-          }}>
-            Guest User
-          </span>
-        </div>
+        ) : (
+          <button
+            onClick={login}
+            style={{
+              background: '#fff',
+              border: '1px solid #dadce0',
+              borderRadius: '6px',
+              padding: '6px 14px',
+              fontSize: '13px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              color: '#3c4043',
+            }}
+          >
+            G Sign in
+          </button>
+        )}
       </div>
     </header>
   )

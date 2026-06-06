@@ -1,7 +1,7 @@
 const NAV_ITEMS = [
   { page: 'dashboard',      icon: '⊞', label: 'Dashboard' },
   { page: 'new-evaluation', icon: '⊕', label: 'New Evaluation' },
-  { page: 'my-documents',   icon: '🗂', label: 'My Documents' },
+  { page: 'documents',      icon: '🗂', label: 'My Documents' },
   { page: 'history',        icon: '🕐', label: 'History' },
   { page: 'reports',        icon: '📊', label: 'Reports' },
   { page: 'settings',       icon: '⚙', label: 'Settings' },

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import ResultsSection from './components/ResultsSection'
 import Sidebar from './components/layout/Sidebar'
 import Navbar from './components/layout/Navbar'
@@ -7,7 +7,10 @@ import ReportView from './components/ReportView'
 import HistoryPage from './pages/HistoryPage'
 import DashboardPage from './pages/DashboardPage'
 import ReportsPage from './pages/ReportsPage'
+import DocumentsPage from './pages/DocumentsPage'
+import SettingsPage from './pages/SettingsPage'
 import { saveEssayResult, updateLatestImprovement } from './utils/historyStorage'
+import { useAuth } from './contexts/AuthContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -27,6 +30,8 @@ const PAGE_TITLES = {
   'history':        'My History',
   'dashboard':      'Dashboard',
   'reports':        'Reports',
+  'documents':      'My Documents',
+  'settings':       'Settings',
 }
 
 const SAMPLE_ESSAY = `Driverless cars represent one of the most significant technological advances of the twenty-first century. These autonomous vehicles rely on a combination of sensors, cameras, radar systems, and sophisticated artificial intelligence to navigate roads without any human input. Proponents argue that self-driving technology could dramatically reduce traffic accidents, which currently cause over a million deaths worldwide each year. Because the vast majority of crashes result from human error, eliminating that error could make roads far safer for everyone.
@@ -43,9 +48,10 @@ function wordCount(text) {
 }
 
 export default function App() {
+  const { user, loading } = useAuth()
   const [essay, setEssay] = useState('')
   const [topic, setTopic] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [isScoring, setIsScoring] = useState(false)
   const [results, setResults] = useState(null)
   const [improvementResult, setImprovementResult] = useState(null)
   const [error, setError] = useState(null)
@@ -53,13 +59,19 @@ export default function App() {
   const [fileNotice, setFileNotice] = useState(null)
   const [activePage, setActivePage] = useState('new-evaluation')
 
+  useEffect(() => {
+    if (!user && !loading) {
+      setActivePage('new-evaluation')
+    }
+  }, [user, loading])
+
   const wc = wordCount(essay)
   const cc = essay.length
   const tooShort = wc > 0 && wc < 20
 
   const handleSubmit = useCallback(async () => {
     if (wc < 20) return
-    setLoading(true)
+    setIsScoring(true)
     setError(null)
     setResults(null)
     setImprovementResult(null)
@@ -82,10 +94,32 @@ export default function App() {
       const data = await res.json()
       setResults(data)
       saveEssayResult(essay, topic, data, null)
+
+      if (user) {
+        try {
+          console.log('Saving to backend, user:', user)
+          const response = await fetch(`${API_URL}/history/save`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              essay_text: essay,
+              topic: topic,
+              score_data: data,
+              improvement_data: null,
+            }),
+          })
+          console.log('Response status:', response.status)
+          const responseData = await response.json()
+          console.log('History saved:', responseData)
+        } catch (err) {
+          console.error('History save failed:', err)
+        }
+      }
     } catch {
       setError('Scoring failed. Please check your essay and try again.')
     } finally {
-      setLoading(false)
+      setIsScoring(false)
     }
   }, [essay, topic, wc])
 
@@ -139,6 +173,16 @@ export default function App() {
           {/* Reports page */}
           {activePage === 'reports' && (
             <ReportsPage onNavigate={setActivePage} />
+          )}
+
+          {/* Documents page */}
+          {activePage === 'documents' && (
+            <DocumentsPage onNavigate={setActivePage} />
+          )}
+
+          {/* Settings page */}
+          {activePage === 'settings' && (
+            <SettingsPage onNavigate={setActivePage} />
           )}
 
           {/* New Evaluation page */}
@@ -283,7 +327,7 @@ export default function App() {
               )}
 
               {/* Loading spinner */}
-              {loading && (
+              {isScoring && (
                 <div className="flex flex-col items-center justify-center py-20 text-gray-500">
                   <div
                     className="w-10 h-10 border-4 rounded-full animate-spin mb-4"
@@ -297,7 +341,7 @@ export default function App() {
               )}
 
               {/* Results */}
-              {results && !loading && (
+              {results && !isScoring && (
                 <ResultsSection
                   results={results}
                   onReset={handleReset}

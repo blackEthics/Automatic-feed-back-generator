@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { getHistory, deleteEntry, clearHistory, getStats } from '../utils/historyStorage'
+import { useAuth } from '../contexts/AuthContext'
 
 const DIMS = [
   { key: 'grammar',      label: 'Grammar',      max: 20 },
@@ -291,6 +292,7 @@ function HistoryCard({ entry, expanded, onToggle, onDelete }) {
 }
 
 export default function HistoryPage({ onNavigate }) {
+  const { user, login } = useAuth()
   const [history, setHistory] = useState(() => getHistory())
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState('newest')
@@ -336,6 +338,53 @@ export default function HistoryPage({ onNavigate }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+      {/* Auth banner */}
+      {!user ? (
+        <div style={{
+          backgroundColor: '#FFFBEB',
+          border: '1px solid #FDE68A',
+          borderRadius: '10px',
+          padding: '12px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+        }}>
+          <p style={{ margin: 0, fontSize: '13px', color: '#92400E' }}>
+            🔒 Sign in with Google to sync your history across devices. Currently showing local history only.
+          </p>
+          <button
+            onClick={login}
+            style={{
+              background: '#fff',
+              border: '1px solid #dadce0',
+              borderRadius: '6px',
+              padding: '6px 14px',
+              fontSize: '13px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              color: '#3c4043',
+              flexShrink: 0,
+            }}
+          >
+            Sign in
+          </button>
+        </div>
+      ) : (
+        <p style={{
+          margin: 0,
+          fontSize: '13px',
+          color: '#166534',
+          backgroundColor: '#F0FDF4',
+          border: '1px solid #BBF7D0',
+          borderRadius: '8px',
+          padding: '8px 14px',
+        }}>
+          ☁️ History synced to your account
+        </p>
+      )}
 
       {/* Stats row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>

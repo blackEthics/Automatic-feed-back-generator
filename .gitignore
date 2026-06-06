@@ -27,3 +27,4 @@ Thumbs.db
 
 # Evaluation plots (regeneratable)
 evaluation/*.png
+.env
