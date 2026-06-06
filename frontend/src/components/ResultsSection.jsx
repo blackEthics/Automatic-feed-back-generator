@@ -14,44 +14,6 @@ const DIMENSIONS = [
   { key: 'vocabulary',   label: 'Vocabulary',    max: 15, tooltip: 'Word richness, academic language and complexity' },
 ]
 
-function downloadReport(results) {
-  const { overall_score, asap_score, dimensions, feedback, word_count } = results
-  const lines = [
-    'ESSAY SCORE REPORT',
-    '==================',
-    '',
-    `Overall Score : ${Math.round(overall_score)} / 100`,
-    `ASAP Grade    : ${asap_score.toFixed(1)} / 6`,
-    `Word Count    : ${word_count}`,
-    '',
-    'DIMENSION SCORES',
-    '----------------',
-    `Grammar       : ${dimensions.grammar.score.toFixed(1)} / 20`,
-    `Relevance     : ${dimensions.relevance.score.toFixed(1)} / 25`,
-    `Organization  : ${dimensions.organization.score.toFixed(1)} / 20`,
-    `Clarity       : ${dimensions.clarity.score.toFixed(1)} / 20`,
-    `Vocabulary    : ${dimensions.vocabulary.score.toFixed(1)} / 15`,
-    '',
-    'FEEDBACK',
-    '--------',
-    'Overall Assessment:',
-    feedback.overall,
-  ]
-  if (feedback.priority) {
-    lines.push('', 'Priority Improvements:', `  • ${feedback.priority}`)
-  }
-  if (feedback.specific_tips?.length > 0) {
-    lines.push('', 'Specific Tips:')
-    feedback.specific_tips.forEach(tip => lines.push(`  • ${tip}`))
-  }
-  const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'essay_report.txt'
-  a.click()
-  URL.revokeObjectURL(url)
-}
 
 const card = {
   backgroundColor: 'var(--color-surface)',
@@ -87,7 +49,7 @@ function StatCard({ label, value, sub }) {
   )
 }
 
-export default function ResultsSection({ results, onReset, originalText, promptName }) {
+export default function ResultsSection({ results, onReset, originalText, promptName, setImprovementResult }) {
   const { overall_score, asap_score, dimensions, feedback, word_count, processing_time_ms } = results
   const [showImprovement, setShowImprovement] = useState(false)
 
@@ -271,13 +233,14 @@ export default function ResultsSection({ results, onReset, originalText, promptN
           promptName={promptName}
           apiUrl={API_URL}
           onClose={() => setShowImprovement(false)}
+          onResult={setImprovementResult}
         />
       )}
 
       {/* Action buttons */}
       <div style={{ display: 'flex', gap: '12px' }}>
         <button
-          onClick={() => downloadReport(results)}
+          onClick={() => window.print()}
           style={{
             flex: 1,
             border: '1px solid var(--color-border)',
@@ -293,7 +256,7 @@ export default function ResultsSection({ results, onReset, originalText, promptN
           onMouseEnter={e => { e.currentTarget.style.borderColor = '#94A3B8'; e.currentTarget.style.color = '#111827' }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.color = '#374151' }}
         >
-          Download Report
+          Download PDF Report
         </button>
         <button
           onClick={onReset}

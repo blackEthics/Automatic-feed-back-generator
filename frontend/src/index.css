@@ -25,3 +25,37 @@ body {
   font-family: var(--font-sans);
   color: var(--color-text);
 }
+
+@media print {
+  /* Hide the app UI */
+  #root > div { display: none !important; }
+
+  /* Show only the report */
+  .print-report {
+    display: block !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    background: white !important;
+    color: black !important;
+    font-size: 12pt !important;
+    line-height: 1.6 !important;
+    padding: 15mm !important;
+    box-sizing: border-box !important;
+    z-index: 99999 !important;
+  }
+
+  .page-break {
+    page-break-before: always !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Hide print report on screen */
+.print-report {
+  display: none;
+}

@@ -3,6 +3,7 @@ import ResultsSection from './components/ResultsSection'
 import Sidebar from './components/layout/Sidebar'
 import Navbar from './components/layout/Navbar'
 import FileUploader from './components/ui/FileUploader'
+import ReportView from './components/ReportView'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -35,6 +36,7 @@ export default function App() {
   const [topic, setTopic] = useState('')
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState(null)
+  const [improvementResult, setImprovementResult] = useState(null)
   const [error, setError] = useState(null)
   const [inputTab, setInputTab] = useState('type')       // 'type' | 'upload'
   const [fileNotice, setFileNotice] = useState(null)     // { name } | null
@@ -48,6 +50,7 @@ export default function App() {
     setLoading(true)
     setError(null)
     setResults(null)
+    setImprovementResult(null)
 
     try {
       const res = await fetch(`${API_URL}/score`, {
@@ -82,6 +85,7 @@ export default function App() {
     setEssay('')
     setTopic('')
     setResults(null)
+    setImprovementResult(null)
     setError(null)
     setFileNotice(null)
     setInputTab('type')
@@ -261,11 +265,18 @@ export default function App() {
                 onReset={handleReset}
                 originalText={essay}
                 promptName={topic}
+                setImprovementResult={setImprovementResult}
               />
             )}
 
         </main>
       </div>
+
+      <ReportView
+        scoreData={results}
+        improvementData={improvementResult}
+        essayText={essay}
+      />
     </div>
   )
 }

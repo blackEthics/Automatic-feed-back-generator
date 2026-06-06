@@ -81,7 +81,7 @@ function DimRow({ label, before, after, max }) {
   )
 }
 
-export default function ImprovementPanel({ originalText, promptName, apiUrl, onClose }) {
+export default function ImprovementPanel({ originalText, promptName, apiUrl, onClose, onResult }) {
   const [loading, setLoading] = useState(true)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
@@ -104,7 +104,11 @@ export default function ImprovementPanel({ originalText, promptName, apiUrl, onC
           const data = await res.json().catch(() => ({}))
           throw new Error(data.detail ?? `HTTP ${res.status}`)
         }
-        if (!cancelled) setResult(await res.json())
+        if (!cancelled) {
+          const data = await res.json()
+          setResult(data)
+          onResult?.(data)
+        }
       } catch (err) {
         if (!cancelled) setError(err.message || 'Improvement failed. Please try again.')
       } finally {
