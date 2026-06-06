@@ -337,7 +337,7 @@ def _plot_feature_importance():
     print(f"[Saved] {out}")
 
 
-def _print_cv_report(results, n_old, n_new, combined=False, train_n=None):
+def _print_cv_report(results, n_old, n_new, combined=False, persuade_only=False, train_n=None):
     """
     Print a post-training comparison table showing the effect of
     the normalised features and XGBoost sample-weight improvements.
@@ -351,6 +351,12 @@ def _print_cv_report(results, n_old, n_new, combined=False, train_n=None):
     if combined:
         print(f"  Dataset       : ASAP 2.0 + PERSUADE 2.0 (combined)")
         print(f"  Total essays available: 50,724")
+        if train_n is not None:
+            print(f"  Training sample: {train_n:,} essays")
+        print()
+    elif persuade_only:
+        print(f"  Dataset       : PERSUADE 2.0 only")
+        print(f"  Total essays available: 25,996")
         if train_n is not None:
             print(f"  Training sample: {train_n:,} essays")
         print()
@@ -384,15 +390,16 @@ def _print_cv_report(results, n_old, n_new, combined=False, train_n=None):
 # Main entry point
 # ------------------------------------------------------------------------------
 
-def main(sample_size=2000, fast_grammar=True, combined=False):
+def main(sample_size=2000, fast_grammar=True, combined=False, persuade_only=False):
     """
     End-to-end training pipeline.
 
     Parameters
     ----------
-    sample_size  : int | None  – None = full dataset (slow)
-    fast_grammar : bool        – True = heuristic grammar features (fast)
-    combined     : bool        – True = use ASAP 2.0 + PERSUADE 2.0
+    sample_size   : int | None  – None = full dataset (slow)
+    fast_grammar  : bool        – True = heuristic grammar features (fast)
+    combined      : bool        – True = use ASAP 2.0 + PERSUADE 2.0
+    persuade_only : bool        – True = use PERSUADE 2.0 only
     """
     print("=" * 62)
     print("ESSAY SCORING MODEL  –  TRAINING PIPELINE")
@@ -412,6 +419,23 @@ def main(sample_size=2000, fast_grammar=True, combined=False):
                       .reset_index(drop=True))
             print(f"[INFO] Stratified sample: {len(df_raw):,} essays "
                   f"({n_strata} strata, ~{per_stratum}/stratum)")
+        df = prepare_dataset(df_raw, sample_size=None)
+    elif persuade_only:
+        persuade_path = "./Dataset/PERSUADE 2.0/persuade_2.0_human_scores_demo_id_github.csv"
+        df_raw = pd.read_csv(persuade_path)
+        df_raw = df_raw[["full_text", "holistic_essay_score", "prompt_name", "source_text"]].copy()
+        df_raw = df_raw.rename(columns={"holistic_essay_score": "score"})
+        print(f"  PERSUADE 2.0: {len(df_raw):,} essays loaded")
+        if sample_size is not None:
+            strat_key = df_raw["score"].astype(str).rename("_strat")
+            n_strata  = strat_key.nunique()
+            per_stratum = sample_size // n_strata
+            df_raw = (df_raw
+                      .groupby(strat_key, group_keys=False)
+                      .apply(lambda g: g.sample(n=min(len(g), per_stratum), random_state=42))
+                      .reset_index(drop=True))
+            print(f"[INFO] Stratified sample: {len(df_raw):,} essays "
+                  f"({n_strata} score strata, ~{per_stratum}/stratum)")
         df = prepare_dataset(df_raw, sample_size=None)
     else:
         df_raw = load_asap_dataset()
@@ -461,7 +485,8 @@ def main(sample_size=2000, fast_grammar=True, combined=False):
     n_new = X.shape[1]
     n_old = n_new - len(_NEW_NORMALISED_FEATURES)
     _print_cv_report(results, n_old=n_old, n_new=n_new,
-                     combined=combined, train_n=len(X_train))
+                     combined=combined, persuade_only=persuade_only,
+                     train_n=len(X_train))
 
     print("\n" + "=" * 62)
     print("TRAINING COMPLETE")
@@ -481,6 +506,8 @@ if __name__ == "__main__":
                         help="Use full dataset (ignores --sample)")
     parser.add_argument("--combined",        action="store_true",
                         help="Use ASAP 2.0 + PERSUADE 2.0 combined dataset")
+    parser.add_argument("--persuade-only",   dest="persuade_only", action="store_true",
+                        help="Use PERSUADE 2.0 dataset only (2000-essay sample)")
     parser.add_argument("--no-fast-grammar", dest="fast_grammar",
                         action="store_false",
                         help="Use LanguageTool grammar check (slow but accurate)")
@@ -492,6 +519,9 @@ if __name__ == "__main__":
         size = args.sample if args.sample > 0 else None
     elif args.combined:
         size = 4000
+    elif args.persuade_only:
+        size = 2000
     else:
         size = 2000
-    main(sample_size=size, fast_grammar=args.fast_grammar, combined=args.combined)
+    main(sample_size=size, fast_grammar=args.fast_grammar,
+         combined=args.combined, persuade_only=args.persuade_only)
